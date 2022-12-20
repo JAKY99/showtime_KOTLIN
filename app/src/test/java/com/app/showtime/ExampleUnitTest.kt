@@ -1,4 +1,4 @@
-package com.app.myapplication
+package com.app.showtime
 
 import org.junit.Test
 

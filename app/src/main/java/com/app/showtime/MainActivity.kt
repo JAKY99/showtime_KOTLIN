@@ -181,13 +181,6 @@ class MainActivity : AppCompatActivity() {
             if (ContextCompat.checkSelfPermission(this.mainActivity, Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this.mainActivity, permissions, this.mainActivity.REQUEST_READ_EXTERNAL_STORAGE)
-                ActivityCompat.OnRequestPermissionsResultCallback { requestCode, permissions, grantResults ->
-                    if (requestCode == this.mainActivity.REQUEST_READ_EXTERNAL_STORAGE) {
-                        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                            this.mainActivity.selectFile(this.mainActivity)
-                        }
-                    }
-                }
             } else {
                 this.mainActivity.selectFile(this.mainActivity)
             }
@@ -220,6 +213,19 @@ class MainActivity : AppCompatActivity() {
     override fun onBackPressed() {
         this.handleGoBack()
     }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_READ_EXTERNAL_STORAGE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                this.selectFile(this)
+            }
+        }
+    }
     @RequiresApi(Build.VERSION_CODES.KITKAT)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -249,6 +255,7 @@ class MainActivity : AppCompatActivity() {
     }
     @RequiresApi(Build.VERSION_CODES.KITKAT)
     fun uploadFileToAws(fileUri : Uri ): Int {
+        var isImageUpload = "none"
         val path = getPath(applicationContext, fileUri)
         val file = File(path)
         val uploadUrlRequest  : String = apiUrlToUse+uploadUrl
@@ -264,11 +271,13 @@ class MainActivity : AppCompatActivity() {
             .build()
         val response = client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
+                isImageUpload = "false"
                 e.printStackTrace()
                 println("Failed to execute request")
             }
             @RequiresApi(Build.VERSION_CODES.KITKAT)
             override fun onResponse(call: Call, response: Response) {
+                isImageUpload = "true"
                 println(response.body()?.string())
             }
 
@@ -276,6 +285,9 @@ class MainActivity : AppCompatActivity() {
 
 
         if(uploadUrl=="/api/v1/user/uploadBackgroundPicture"){
+            while(isImageUpload=="none"){
+                Thread.sleep(1000)
+            }
             this.webView.evaluateJavascript("""
                     (function() {
                        document.getElementById("background-upload-input-android").dispatchEvent(new Event('change'));

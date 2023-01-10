@@ -69,50 +69,13 @@ class MainActivity : AppCompatActivity() {
         this.webView = findViewById(R.id.webView);
         this.webView.settings.javaScriptEnabled = true
         this.webView.addJavascriptInterface(WebAppInterface(this, this), "Android")
-        this.webView.webViewClient = object : WebViewClient() {
-//            override fun onPageFinished(view: WebView, url: String) {
-//                webView.evaluateJavascript("""
-//        (function() {
-//            document.addEventListener('click', function(event) {
-//                var target = event.target;
-//                if (target.tagName === 'INPUT' && target.type === 'file') {
-//                    // Update a variable in Kotlin with the name of the input element
-//                    Android.updateVariable(target.id);
-//                }
-//            });
-//        })();
-//    """.trimIndent()) {
-//                   this@MainActivity.idInputTypeFile
-//                }
-//            }
-        }
-        this.webView.webChromeClient = object : WebChromeClient() {
-
-//            override fun onShowFileChooser(
-//                webView: WebView,
-//                filePathCallback: ValueCallback<Array<Uri>>,
-//                fileChooserParams: WebChromeClient.FileChooserParams
-//            ): Boolean {
-//                this@MainActivity.filePathCallback = filePathCallback
-//                val intent = Intent(Intent.ACTION_GET_CONTENT)
-//                intent.type = "*/*"
-//                val chooserIntent = Intent.createChooser(intent, "Choose file")
-//                val permissions = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-//                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_EXTERNAL_STORAGE)
-//                    != PackageManager.PERMISSION_GRANTED) {
-//                    ActivityCompat.requestPermissions(this@MainActivity, permissions, REQUEST_READ_EXTERNAL_STORAGE)
-//                } else {
-//                    startActivityForResult(chooserIntent, FILE_CHOOSER_REQUEST_CODE)
-//                }
-//                return true
-//            }
-
-        }
+        this.webView.webViewClient = object : WebViewClient() {}
+        this.webView.webChromeClient = object : WebChromeClient() {}
         this.webView.settings.domStorageEnabled = true
+        this.webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         this.webView.settings.allowFileAccess = true
         this.webView.settings.allowContentAccess = true
         this.webView.loadUrl(urlToUse)
-
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -192,7 +155,7 @@ class MainActivity : AppCompatActivity() {
 
         // Create an intent to open the file picker
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI)
-//        intent.type = "*/*"
+        intent.type = "*/*"
 
         // Set the title of the file picker
         intent.putExtra(Intent.EXTRA_TITLE, "Select a file")

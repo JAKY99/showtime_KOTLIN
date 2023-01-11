@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
         this.webView.webViewClient = object : WebViewClient() {}
         this.webView.webChromeClient = object : WebChromeClient() {}
         this.webView.settings.domStorageEnabled = true
-        this.webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+//        this.webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         this.webView.settings.allowFileAccess = true
         this.webView.settings.allowContentAccess = true
         this.webView.loadUrl(urlToUse)

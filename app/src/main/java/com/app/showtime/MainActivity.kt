@@ -25,6 +25,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import okhttp3.*
 import java.io.File
 import java.io.IOException
@@ -83,7 +86,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 this@MainActivity.webView.post {
-                    this@MainActivity.webView.evaluateJavascript("localStorage.setItem('isAndroid', true )", null)
+                    this@MainActivity.webView.evaluateJavascript("localStorage.setItem('isAndroid', 'true' )", null)
                 }
             }
             override fun onReceivedHttpError(
@@ -189,7 +192,9 @@ class MainActivity : AppCompatActivity() {
         }
         @JavascriptInterface
         fun toggleVocalSearch() {
-            this.mainActivity.vocalCommand()
+            GlobalScope.launch(Dispatchers.Main) {
+                this@WebAppInterface.mainActivity.vocalCommand()
+            }
         }
     }
     private fun selectFile(activity: Activity) {
@@ -417,10 +422,10 @@ class MainActivity : AppCompatActivity() {
         this.startActivityForResult(speechIntent, SPEECH_REQUEST_COMMAND_CODE)
     }
    fun vocalCommand(){
-       if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-           ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO_PERMISSION)
+       if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+           ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO_PERMISSION)
        }else{
-           val recognizer = SpeechRecognizer.createSpeechRecognizer(this)
+           val recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
            val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)

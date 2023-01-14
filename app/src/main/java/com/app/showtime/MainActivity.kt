@@ -29,9 +29,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import okhttp3.*
+import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.io.File
 import java.io.IOException
 import java.net.URL
+import java.time.Duration
 import java.util.*
 
 
@@ -116,6 +118,7 @@ class MainActivity : AppCompatActivity() {
         this.webView.settings.allowFileAccess = true
         this.webView.settings.allowContentAccess = true
         this.checkWebAccess()
+//        this.kafkaListenerContainer()
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -204,10 +207,10 @@ class MainActivity : AppCompatActivity() {
         intent.type = "image/*"
 
         // Set the title of the file picker
-        intent.putExtra(Intent.EXTRA_TITLE, "Select a file")
+//        intent.putExtra(Intent.EXTRA_TITLE, "Select a file")
         // Only allow the user to select a single file
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-        val chooserIntent = Intent.createChooser(intent, "Choose file")
+        val chooserIntent = Intent.createChooser(intent, "Select a file")
         // Start the activity and wait for a result
         activity.startActivityForResult(chooserIntent, FILE_CHOOSER_REQUEST_CODE)
     }
@@ -244,12 +247,18 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == FILE_CHOOSER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
             val fileUri = data?.data
             if (fileUri != null) {
-                val filePath = fileUri.path
-                val file = File(filePath)
-                val fileExtension = MimeTypeMap.getFileExtensionFromUrl(fileUri.toString())
-                val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExtension)
-//                val fileContent = file.readBytes()
-                val filename = file.name
+                val builder = AlertDialog.Builder(this@MainActivity)
+                if(uploadUrl=="/api/v1/user/uploadBackgroundPicture"){
+                    builder.setTitle("Update background picture")
+                }
+                if(uploadUrl=="/api/v1/user/uploadProfilePicture"){
+                    builder.setTitle("Update profile picture")
+                }
+                val message = "Upload in progress please wait ..."
+                builder.setMessage(message)
+                builder.setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                val alert = builder.create()
+                alert.show()
                 uploadFileToAws(fileUri)
             }
 // Do something with the file URI
@@ -428,9 +437,9 @@ class MainActivity : AppCompatActivity() {
            val recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
            val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-           recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
-           recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-           recognizerIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
+//           recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+//           recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+           recognizerIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk now")
            recognizer.setRecognitionListener(object : RecognitionListener {
                @RequiresApi(Build.VERSION_CODES.KITKAT)
                override fun onResults(results: Bundle) {
@@ -440,16 +449,21 @@ class MainActivity : AppCompatActivity() {
                        val spokenTextSearch = result[0].lowercase()
                        if(spokenTextSearch.contains("search")){
                            val search = spokenTextSearch.replace("search","")
-                           val builder = AlertDialog.Builder(this@MainActivity)
-                           builder.setTitle("Under Development")
-                           val message = "The search feature is under development. You can search for '$search' on explore section , manually for the moment."
-                           builder.setMessage("This functionality is currently under development.")
-                           builder.setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
-                           val alert = builder.create()
-                           alert.show()
+                           this@MainActivity.webView.post {
+                               this@MainActivity.webView.evaluateJavascript("""
+                                    (function() {
+                                       document.getElementById('navbar-explore-btn').dispatchEvent(new Event('click') );
+                                       document.getElementsByClassName('ng-fa-icon search-icon-action')[0].dispatchEvent(new Event('click') )
+                                       document.getElementsByClassName('search-input-container')[0].getElementsByTagName('input')[0].value = '$search'
+                                       document.getElementsByClassName('search-input-container')[0].getElementsByTagName('input')[0].dispatchEvent(new Event('input') )
+                                       document.getElementsByClassName('main-search')[0].getElementsByTagName('form')[0].dispatchEvent(new Event('submit') )                                                                      
+                                    })();
+                                    """.trimIndent()) { value -> println(value) }
+                           }
+//
 
                        }
-                       if (spokenText.equals("Openprofile", true)) {
+                       if (spokenText.contains("profile", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
                                     (function() {
@@ -458,7 +472,34 @@ class MainActivity : AppCompatActivity() {
                                     """.trimIndent()) { value -> println(value) }
                            }
                        }
-                       if (spokenText.equals("Openhome", true)) {
+                       if (spokenText.contains("series", true)||spokenText.contains("série", true)||spokenText.contains("cerise", true)||spokenText.contains("show", true)) {
+                           this@MainActivity.webView.post {
+                               this@MainActivity.webView.evaluateJavascript("""
+                                    (function() {
+                                       document.getElementById('navbar-series-btn').dispatchEvent(new Event('click') );
+                                    })();
+                                    """.trimIndent()) { value -> println(value) }
+                           }
+                       }
+                       if (spokenText.contains("movies", true)) {
+                           this@MainActivity.webView.post {
+                               this@MainActivity.webView.evaluateJavascript("""
+                                    (function() {
+                                       document.getElementById('navbar-movies-btn').dispatchEvent(new Event('click') );
+                                    })();
+                                    """.trimIndent()) { value -> println(value) }
+                           }
+                       }
+                       if (spokenText.contains("social", true)) {
+                           this@MainActivity.webView.post {
+                               this@MainActivity.webView.evaluateJavascript("""
+                                    (function() {
+                                       document.getElementById('navbar-social-btn').dispatchEvent(new Event('click') );
+                                    })();
+                                    """.trimIndent()) { value -> println(value) }
+                           }
+                       }
+                       if (spokenText.contains("Openhome", true)||spokenText.contains("explore", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
                                 (function() {
@@ -550,6 +591,24 @@ class MainActivity : AppCompatActivity() {
        }
 
    }
+    fun kafkaListenerContainer(){
+        val props = Properties()
+        props["bootstrap.servers"] = "2-3-129-154-103:30010"
+        props["group.id"] = "dev"
+        props["enable.auto.commit"] = "true"
+        props["auto.commit.interval.ms"] = "1000"
+        props["session.timeout.ms"] = "30000"
+        props["key.deserializer"] = "org.apache.kafka.common.serialization.StringDeserializer"
+        props["value.deserializer"] = "org.apache.kafka.common.serialization.StringDeserializer"
+        val consumer = KafkaConsumer<String, String>(props)
+        consumer.subscribe(listOf("devUser"))
+        while (true) {
+            val records = consumer.poll(Duration.ofMillis(100))
+            for (record in records) {
+                Log.d("Kafka", "offset = ${record.offset()}, key = ${record.key()}, value = ${record.value()}")
+            }
+        }
+    }
 }
 
 

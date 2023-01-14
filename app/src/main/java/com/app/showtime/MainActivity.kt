@@ -3,6 +3,7 @@ package com.app.showtime
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -12,13 +13,18 @@ import android.net.*
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Base64.*
+import android.util.Log
 import android.webkit.*
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.google.gson.Gson
 import okhttp3.*
 import java.io.File
 import java.io.IOException
@@ -30,13 +36,17 @@ class MainActivity : AppCompatActivity() {
     private var userMail: String? = null
     private var bearerToken: String? = null
     private var uploadUrl: String? = null
+    private var countTest : Int = 0
     val env = "dev"
     private val FILE_CHOOSER_REQUEST_CODE = 1
     private val REQUEST_READ_EXTERNAL_STORAGE = 2
     private val READ_STORAGE_PERMISSION_REQUEST_CODE = 1
+    private val SPEECH_REQUEST_CODE = 3
+    private val SPEECH_REQUEST_COMMAND_CODE = 4
+    private val REQUEST_RECORD_AUDIO_PERMISSION = 5
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var idInputTypeFile = ""
-    private lateinit var webView: WebView
+    lateinit var webView: WebView
     object apiUrl{
         val local = "https://dev.showtime-app.click/api"
         val dev = "https://dev.showtime-app.click/api"
@@ -69,13 +79,40 @@ class MainActivity : AppCompatActivity() {
         this.webView = findViewById(R.id.webView);
         this.webView.settings.javaScriptEnabled = true
         this.webView.addJavascriptInterface(WebAppInterface(this, this), "Android")
-        this.webView.webViewClient = object : WebViewClient() {}
-        this.webView.webChromeClient = object : WebChromeClient() {}
+        this.webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                this@MainActivity.webView.post {
+                    this@MainActivity.webView.evaluateJavascript("localStorage.setItem('isAndroid', true )", null)
+                }
+            }
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: WebResourceResponse?
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                println("errorResponse: ${errorResponse.toString()}")
+            }
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                val errorPage = URL("file:///android_asset/error_page.html")
+                webView.loadUrl(errorPage.toString())
+                this@MainActivity.checkWebAccess()
+            }
+        }
+        this.webView.webChromeClient = object : WebChromeClient() {
+
+        }
         this.webView.settings.domStorageEnabled = true
 //        this.webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         this.webView.settings.allowFileAccess = true
         this.webView.settings.allowContentAccess = true
-        this.webView.loadUrl(urlToUse)
+        this.checkWebAccess()
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -150,12 +187,16 @@ class MainActivity : AppCompatActivity() {
 
 
         }
+        @JavascriptInterface
+        fun vocalCommandWebview() {
+            this.mainActivity.vocalCommand()
+        }
     }
     private fun selectFile(activity: Activity) {
 
         // Create an intent to open the file picker
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI)
-        intent.type = "*/*"
+        val intent = Intent(Intent.ACTION_PICK)
+        intent.type = "image/*"
 
         // Set the title of the file picker
         intent.putExtra(Intent.EXTRA_TITLE, "Select a file")
@@ -204,11 +245,21 @@ class MainActivity : AppCompatActivity() {
                 val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExtension)
 //                val fileContent = file.readBytes()
                 val filename = file.name
-
-
                 uploadFileToAws(fileUri)
             }
 // Do something with the file URI
+        }
+        if (requestCode == SPEECH_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+            val result = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            if (result != null && result.isNotEmpty()) {
+                val spokenText = result[0]
+                if (spokenText.equals("OK showtime", true)) {
+                    startVoiceRecognition()
+                }
+            }
+        }
+        if(requestCode == REQUEST_RECORD_AUDIO_PERMISSION && resultCode == Activity.RESULT_OK){
+            vocalCommand()
         }
     }
     fun showFilePicker(activity: Activity) {
@@ -284,7 +335,192 @@ class MainActivity : AppCompatActivity() {
         }
         return result
     }
+    @RequiresApi(Build.VERSION_CODES.KITKAT)
+    fun checkApiAccess(fileUri : Uri): Int {
+        val uploadUrlRequest  : String = apiUrlToUse+"/api/v1/health/check"
+        val client = OkHttpClient()
+        var status = "none"
+        val request = Request.Builder()
+            .url(uploadUrlRequest)
+            .build()
+        val response = client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                status = "false"
+                println("Failed to execute request")
 
+            }
+            @RequiresApi(Build.VERSION_CODES.KITKAT)
+            override fun onResponse(call: Call, response: Response) {
+               var ResponseType : HealthCheckStatus = response.body()?.string()?.let { Gson().fromJson(it, HealthCheckStatus::class.java) }!!
+                if(ResponseType.status=="OK"){
+//                    uploadFileToAws(fileUri)
+                }
+                if(ResponseType.status!=="OK"){
+//                    status = "false"
+                }
+            }
+
+        })
+        return 0
+
+    }
+
+    @RequiresApi(Build.VERSION_CODES.KITKAT)
+    fun checkWebAccess(): Void? {
+        val loadingPage = URL("file:///android_asset/default_loading_page.html")
+        webView.loadUrl(loadingPage.toString())
+        var checkUrlRequest  : String = urlToUse
+        val client = OkHttpClient()
+        var status = "none"
+        val request = Request.Builder()
+            .url(checkUrlRequest)
+            .get()
+            .build()
+        val response = client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                status = "false"
+                e.printStackTrace()
+                println("Failed to execute request")
+            }
+            @RequiresApi(Build.VERSION_CODES.KITKAT)
+            override fun onResponse(call: Call, response: Response) {
+                response.code().let { println(it) }
+                if(response.code()==200){
+                    status = "true"
+                }
+                if(response.code()!==200){
+                    status = "false"
+                }
+            }
+
+        })
+        while (status=="none"){
+            Thread.sleep(1000)
+        }
+        if(status=="true"){
+            webView.loadUrl(checkUrlRequest)
+        }
+        if(status=="false"){
+            val errorPage = URL("file:///android_asset/error_page.html")
+            webView.loadUrl(errorPage.toString())
+        }
+        return null
+    }
+
+    class HealthCheckStatus {
+        var status = "OK"
+    }
+    fun startVoiceRecognition() {
+        val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+        speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        speechIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
+        this.startActivityForResult(speechIntent, SPEECH_REQUEST_COMMAND_CODE)
+    }
+   fun vocalCommand(){
+       if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+           ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO_PERMISSION)
+       }else{
+           val recognizer = SpeechRecognizer.createSpeechRecognizer(this)
+           val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+           recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+           recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+           recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+           recognizer.setRecognitionListener(object : RecognitionListener {
+               @RequiresApi(Build.VERSION_CODES.KITKAT)
+               override fun onResults(results: Bundle) {
+                   val result = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                   if (result != null && result.isNotEmpty()) {
+                       val spokenText = result[0].replace(" ", "")
+                       val spokenTextSearch = result[0].lowercase()
+                       if(spokenTextSearch.contains("search")){
+                           val search = spokenTextSearch.replace("search","")
+                           val builder = AlertDialog.Builder(this@MainActivity)
+                           builder.setTitle("Under Development")
+                           val message = "The search feature is under development. You can search for $search on explore manually for the moment."
+                           builder.setMessage("This functionality is currently under development.")
+                           builder.setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                           val alert = builder.create()
+                           alert.show()
+
+                       }
+                       if (spokenText.equals("Openprofile", true)) {
+                           this@MainActivity.webView.post {
+                               this@MainActivity.webView.evaluateJavascript("""
+                    (function() {
+                       document.getElementById('navbar-profil-btn').dispatchEvent(new Event('click') );
+                    })();
+                    """.trimIndent()) { value -> println(value) }
+
+                           }
+                       }
+                       if (spokenText.equals("Openhome", true)) {
+                           this@MainActivity.webView.post {
+                               this@MainActivity.webView.evaluateJavascript("document.getElementById('navbar-explore-btn').dispatchEvent(new Event('click') )", null)
+                           }
+                       }
+                   }
+
+               }
+
+               override fun onPartialResults(p0: Bundle?) {
+                   Log.d("Speech", "onPartialResults")
+               }
+
+               override fun onEvent(p0: Int, p1: Bundle?) {
+                   Log.d("Speech", "onEvent")
+               }
+
+               override fun onError(error: Int) {
+                   when (error) {
+                       SpeechRecognizer.ERROR_AUDIO -> Log.e("SpeechRecognizer", "Error audio")
+                       SpeechRecognizer.ERROR_CLIENT -> Log.e("SpeechRecognizer", "Error client")
+                       SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> Log.e(
+                           "SpeechRecognizer",
+                           "Error insufficient permissions"
+                       )
+                       SpeechRecognizer.ERROR_NETWORK -> Log.e("SpeechRecognizer", "Error network")
+                       SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> Log.e(
+                           "SpeechRecognizer",
+                           "Error network timeout"
+                       )
+                       SpeechRecognizer.ERROR_NO_MATCH -> Log.e(
+                           "SpeechRecognizer",
+                           "Error no match"
+                       )
+                       SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> Log.e(
+                           "SpeechRecognizer",
+                           "Error recognizer busy"
+                       )
+                       SpeechRecognizer.ERROR_SERVER -> Log.e("SpeechRecognizer", "Error server")
+                       SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> Log.e(
+                           "SpeechRecognizer",
+                           "Error speech timeout"
+                       )
+                   }
+               }
+
+               override fun onEndOfSpeech() {
+                   Log.d("SpeechRecognizer", "End of speech")
+               }
+
+               override fun onReadyForSpeech(params: Bundle?) {
+                   Log.d("SpeechRecognizer", "Ready for speech")
+               }
+
+               override fun onBeginningOfSpeech() {
+                     Log.d("SpeechRecognizer", "Beginning of speech")
+               }
+
+               override fun onRmsChanged(rmsdB: Float) {}
+               override fun onBufferReceived(buffer: ByteArray?) {}
+           })
+           recognizer.startListening(recognizerIntent)
+       }
+
+   }
+}
+
+private fun Intent.putExtra(s: String, mainActivity: MainActivity) {
 
 }
 

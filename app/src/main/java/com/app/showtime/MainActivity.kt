@@ -447,7 +447,6 @@ class MainActivity : AppCompatActivity() {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
                                     (function() {
-                                        document.getElementById('navbar-vocal-btn')?.classList.toggle('navbar-vocal-btn-pulse');
                                        document.getElementById('navbar-profil-btn').dispatchEvent(new Event('click') );
                                     })();
                                     """.trimIndent()) { value -> println(value) }
@@ -457,11 +456,17 @@ class MainActivity : AppCompatActivity() {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
                                 (function() {
-                                    document.getElementById('navbar-vocal-btn')?.classList.toggle('navbar-vocal-btn-pulse');
                                    document.getElementById('navbar-explore-btn').dispatchEvent(new Event('click') )
                                 })();
                                 """.trimIndent()) { value -> println(value) }
                            }
+                       }
+                       this@MainActivity.webView.post {
+                           this@MainActivity.webView.evaluateJavascript("""
+                                (function() {
+                                    document.getElementById('navbar-vocal-btn')?.classList.remove('navbar-vocal-btn-pulse');
+                                })();
+                                """.trimIndent()) { value -> println(value) }
                        }
                    }
 
@@ -472,7 +477,7 @@ class MainActivity : AppCompatActivity() {
                    this@MainActivity.webView.post {
                        this@MainActivity.webView.evaluateJavascript("""
                                 (function() {
-                                    document.getElementById('navbar-vocal-btn')?.classList.toggle('navbar-vocal-btn-pulse');
+                                   document.getElementById('navbar-vocal-btn')?.classList.remove('navbar-vocal-btn-pulse');
                                 })();
                                 """.trimIndent()) { value -> println(value) }
                    }
@@ -488,7 +493,7 @@ class MainActivity : AppCompatActivity() {
                    this@MainActivity.webView.post {
                        this@MainActivity.webView.evaluateJavascript("""
                                 (function() {
-                                    document.getElementById('navbar-vocal-btn')?.classList.toggle('navbar-vocal-btn-pulse');
+                                    document.getElementById('navbar-vocal-btn')?.classList.remove('navbar-vocal-btn-pulse');
                                 })();
                                 """.trimIndent()) { value -> println(value) }
                    }

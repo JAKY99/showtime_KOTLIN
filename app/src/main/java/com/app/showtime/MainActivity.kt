@@ -188,7 +188,7 @@ class MainActivity : AppCompatActivity() {
 
         }
         @JavascriptInterface
-        fun vocalCommandWebview() {
+        fun toggleVocalSearch() {
             this.mainActivity.vocalCommand()
         }
     }
@@ -436,7 +436,7 @@ class MainActivity : AppCompatActivity() {
                            val search = spokenTextSearch.replace("search","")
                            val builder = AlertDialog.Builder(this@MainActivity)
                            builder.setTitle("Under Development")
-                           val message = "The search feature is under development. You can search for $search on explore manually for the moment."
+                           val message = "The search feature is under development. You can search for '$search' on explore section , manually for the moment."
                            builder.setMessage("This functionality is currently under development.")
                            builder.setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
                            val alert = builder.create()
@@ -446,23 +446,36 @@ class MainActivity : AppCompatActivity() {
                        if (spokenText.equals("Openprofile", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
-                    (function() {
-                       document.getElementById('navbar-profil-btn').dispatchEvent(new Event('click') );
-                    })();
-                    """.trimIndent()) { value -> println(value) }
-
+                                    (function() {
+                                        document.getElementById('navbar-vocal-btn')?.classList.toggle('navbar-vocal-btn-pulse');
+                                       document.getElementById('navbar-profil-btn').dispatchEvent(new Event('click') );
+                                    })();
+                                    """.trimIndent()) { value -> println(value) }
                            }
                        }
                        if (spokenText.equals("Openhome", true)) {
                            this@MainActivity.webView.post {
-                               this@MainActivity.webView.evaluateJavascript("document.getElementById('navbar-explore-btn').dispatchEvent(new Event('click') )", null)
+                               this@MainActivity.webView.evaluateJavascript("""
+                                (function() {
+                                    document.getElementById('navbar-vocal-btn')?.classList.toggle('navbar-vocal-btn-pulse');
+                                   document.getElementById('navbar-explore-btn').dispatchEvent(new Event('click') )
+                                })();
+                                """.trimIndent()) { value -> println(value) }
                            }
                        }
                    }
 
                }
 
+               @RequiresApi(Build.VERSION_CODES.KITKAT)
                override fun onPartialResults(p0: Bundle?) {
+                   this@MainActivity.webView.post {
+                       this@MainActivity.webView.evaluateJavascript("""
+                                (function() {
+                                    document.getElementById('navbar-vocal-btn')?.classList.toggle('navbar-vocal-btn-pulse');
+                                })();
+                                """.trimIndent()) { value -> println(value) }
+                   }
                    Log.d("Speech", "onPartialResults")
                }
 
@@ -470,7 +483,15 @@ class MainActivity : AppCompatActivity() {
                    Log.d("Speech", "onEvent")
                }
 
+               @RequiresApi(Build.VERSION_CODES.KITKAT)
                override fun onError(error: Int) {
+                   this@MainActivity.webView.post {
+                       this@MainActivity.webView.evaluateJavascript("""
+                                (function() {
+                                    document.getElementById('navbar-vocal-btn')?.classList.toggle('navbar-vocal-btn-pulse');
+                                })();
+                                """.trimIndent()) { value -> println(value) }
+                   }
                    when (error) {
                        SpeechRecognizer.ERROR_AUDIO -> Log.e("SpeechRecognizer", "Error audio")
                        SpeechRecognizer.ERROR_CLIENT -> Log.e("SpeechRecognizer", "Error client")
@@ -518,10 +539,6 @@ class MainActivity : AppCompatActivity() {
        }
 
    }
-}
-
-private fun Intent.putExtra(s: String, mainActivity: MainActivity) {
-
 }
 
 

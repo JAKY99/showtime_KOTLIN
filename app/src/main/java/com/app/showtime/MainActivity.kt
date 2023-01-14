@@ -425,6 +425,7 @@ class MainActivity : AppCompatActivity() {
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+           recognizerIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
            recognizer.setRecognitionListener(object : RecognitionListener {
                @RequiresApi(Build.VERSION_CODES.KITKAT)
                override fun onResults(results: Bundle) {

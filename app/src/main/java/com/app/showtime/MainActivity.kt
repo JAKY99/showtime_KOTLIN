@@ -12,6 +12,9 @@ import android.content.pm.PackageManager
 import android.net.*
 import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.provider.MediaStore
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -19,11 +22,13 @@ import android.speech.SpeechRecognizer
 import android.util.Base64.*
 import android.util.Log
 import android.webkit.*
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.getSystemService
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -256,10 +261,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 val message = "Upload in progress please wait ..."
                 builder.setMessage(message)
-                builder.setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                builder.setCancelable(false)
                 val alert = builder.create()
-                alert.show()
-                uploadFileToAws(fileUri)
+                uploadFileToAws(fileUri,alert)
             }
 // Do something with the file URI
         }
@@ -282,7 +286,8 @@ class MainActivity : AppCompatActivity() {
         activity.startActivityForResult(intent, FILE_CHOOSER_REQUEST_CODE)
     }
     @RequiresApi(Build.VERSION_CODES.KITKAT)
-    fun uploadFileToAws(fileUri : Uri ): Int {
+    fun uploadFileToAws(fileUri : Uri , alertDialog: AlertDialog ): Int {
+        alertDialog.show()
         var isImageUpload = "none"
         val path = getPath(applicationContext, fileUri)
         val file = File(path)
@@ -299,12 +304,57 @@ class MainActivity : AppCompatActivity() {
             .build()
         val response = client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
+                GlobalScope.launch(Dispatchers.Main) {
+                    alertDialog.setTitle("Upload status")
+                    alertDialog.setMessage("failed")
+                    alertDialog.setCancelable(true)
+                }
+
                 isImageUpload = "false"
                 e.printStackTrace()
                 println("Failed to execute request")
             }
             @RequiresApi(Build.VERSION_CODES.KITKAT)
             override fun onResponse(call: Call, response: Response) {
+                GlobalScope.launch(Dispatchers.Main) {
+
+                    if(uploadUrl=="/api/v1/user/uploadBackgroundPicture"){
+                        this@MainActivity.webView.evaluateJavascript("""
+                    (function() {
+                       document.getElementById("background-upload-input-android").dispatchEvent(new Event('change'));
+                    })();
+                    """.trimIndent()) {
+                                value -> println(value)
+                            alertDialog.setTitle("Upload status")
+                            alertDialog.setMessage("Done")
+                            val timer = Timer()
+                            val task = object : TimerTask() {
+                                override fun run() {
+                                    alertDialog.dismiss()
+                                }
+                            }
+                            timer.schedule(task, 2000)
+                        }
+                    }
+                    if(uploadUrl=="/api/v1/user/uploadProfilePicture"){
+                        this@MainActivity.webView.evaluateJavascript("""
+                    (function() {
+                        document.getElementById("avatar-upload-input-android").dispatchEvent(new Event('change'));
+                    })();
+                    """.trimIndent()) { value -> println(value)
+                            alertDialog.setTitle("Upload status")
+                            alertDialog.setMessage("Done")
+                            val timer = Timer()
+                            val task = object : TimerTask() {
+                                override fun run() {
+                                    alertDialog.dismiss()
+                                }
+                            }
+                            timer.schedule(task, 2000)
+                        }
+                    }
+                }
+
                 isImageUpload = "true"
                 println(response.body()?.string())
             }
@@ -312,23 +362,8 @@ class MainActivity : AppCompatActivity() {
         })
 
 
-        if(uploadUrl=="/api/v1/user/uploadBackgroundPicture"){
-            while(isImageUpload=="none"){
-                Thread.sleep(1000)
-            }
-            this.webView.evaluateJavascript("""
-                    (function() {
-                       document.getElementById("background-upload-input-android").dispatchEvent(new Event('change'));
-                    })();
-                    """.trimIndent()) { value -> println(value) }
-        }
-        if(uploadUrl=="/api/v1/user/uploadProfilePicture"){
-            this.webView.evaluateJavascript("""
-                    (function() {
-                        document.getElementById("avatar-upload-input-android").dispatchEvent(new Event('change'));
-                    })();
-                    """.trimIndent()) { value -> println(value) }
-        }
+
+
 
         return 1
 
@@ -430,10 +465,23 @@ class MainActivity : AppCompatActivity() {
         speechIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
         this.startActivityForResult(speechIntent, SPEECH_REQUEST_COMMAND_CODE)
     }
+//   @RequiresApi(Build.VERSION_CODES.S)
    fun vocalCommand(){
+
+
+
+       val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+       val vibrationEffect = VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)
+       vibrator.vibrate(vibrationEffect)
        if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO_PERMISSION)
        }else{
+           val builder = AlertDialog.Builder(this@MainActivity)
+           builder.setTitle("Vocal Command")
+           val message = "Speak now"
+           builder.setMessage(message)
+           val alert = builder.create()
+           alert.show()
            val recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
            val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -443,6 +491,7 @@ class MainActivity : AppCompatActivity() {
            recognizer.setRecognitionListener(object : RecognitionListener {
                @RequiresApi(Build.VERSION_CODES.KITKAT)
                override fun onResults(results: Bundle) {
+                   alert.dismiss()
                    val result = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                    if (result != null && result.isNotEmpty()) {
                        val spokenText = result[0].replace(" ", "")
@@ -521,6 +570,7 @@ class MainActivity : AppCompatActivity() {
 
                @RequiresApi(Build.VERSION_CODES.KITKAT)
                override fun onPartialResults(p0: Bundle?) {
+                   alert.dismiss()
                    this@MainActivity.webView.post {
                        this@MainActivity.webView.evaluateJavascript("""
                                 (function() {
@@ -537,6 +587,7 @@ class MainActivity : AppCompatActivity() {
 
                @RequiresApi(Build.VERSION_CODES.KITKAT)
                override fun onError(error: Int) {
+                   alert.dismiss()
                    this@MainActivity.webView.post {
                        this@MainActivity.webView.evaluateJavascript("""
                                 (function() {

@@ -204,7 +204,46 @@ class MainActivity : AppCompatActivity() {
                 this@WebAppInterface.mainActivity.vocalCommand()
             }
         }
+        @JavascriptInterface
+        fun updateApp() {
+            GlobalScope.launch(Dispatchers.Main) {
+                this@WebAppInterface.mainActivity.updateNoCacheWebview()
+            }
+        }
     }
+
+    private fun updateNoCacheWebview() {
+        val builder = AlertDialog.Builder(this@MainActivity)
+
+        val message = "Reloading the app , please wait"
+        builder.setTitle("Update")
+        builder.setMessage(message)
+        builder.setCancelable(false)
+        val alert = builder.create()
+        alert.show()
+        this.webView.post {
+            this.webView.clearCache(true)
+            this.webView.clearHistory()
+            this.webView.loadUrl(urlToUse)
+        }
+        this@MainActivity.webView.evaluateJavascript("""
+                (function() {
+                    location.reload(true);
+                })();
+                """.trimIndent()) { value -> println(value)
+            alert.setTitle("Update")
+            alert.setMessage("Reload complete , thanks for your patience!")
+            val timer = Timer()
+            val task = object : TimerTask() {
+                override fun run() {
+                    alert.dismiss()
+                }
+            }
+            timer.schedule(task, 2000)
+        }
+
+    }
+
     private fun selectFile(activity: Activity) {
 
         // Create an intent to open the file picker
@@ -430,29 +469,32 @@ class MainActivity : AppCompatActivity() {
                 status = "false"
                 e.printStackTrace()
                 println("Failed to execute request")
+                GlobalScope.launch(Dispatchers.Main) {
+                    status = "false"
+                    val errorPage = URL("file:///android_asset/error_page.html")
+                    webView.loadUrl(errorPage.toString())
+                }
+
             }
             @RequiresApi(Build.VERSION_CODES.KITKAT)
             override fun onResponse(call: Call, response: Response) {
                 response.code().let { println(it) }
-                if(response.code()==200){
-                    status = "true"
+                GlobalScope.launch(Dispatchers.Main) {
+                    if(response.code()==200){
+                        status = "true"
+                        webView.loadUrl(checkUrlRequest)
+                    }
+                    if(response.code()!==200){
+                        status = "false"
+                        val errorPage = URL("file:///android_asset/error_page.html")
+                        webView.loadUrl(errorPage.toString())
+                    }
                 }
-                if(response.code()!==200){
-                    status = "false"
-                }
+
             }
 
         })
-        while (status=="none"){
-            Thread.sleep(1000)
-        }
-        if(status=="true"){
-            webView.loadUrl(checkUrlRequest)
-        }
-        if(status=="false"){
-            val errorPage = URL("file:///android_asset/error_page.html")
-            webView.loadUrl(errorPage.toString())
-        }
+
         return null
     }
 

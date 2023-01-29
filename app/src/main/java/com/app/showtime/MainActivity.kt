@@ -21,6 +21,8 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Base64.*
 import android.util.Log
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.webkit.*
 import android.widget.Toast
 import androidx.annotation.RequiresApi
@@ -40,6 +42,7 @@ import java.io.IOException
 import java.net.URL
 import java.time.Duration
 import java.util.*
+import kotlin.math.abs
 
 
 class MainActivity : AppCompatActivity() {
@@ -94,6 +97,55 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 this@MainActivity.webView.post {
                     this@MainActivity.webView.evaluateJavascript("localStorage.setItem('isAndroid', 'true' )", null)
+                    this@MainActivity.webView.evaluateJavascript("var xDown = null;\n" +
+                            "  var yDown = null;\n" +
+                            "\n" +
+                            "  document.addEventListener(\"touchstart\", function(evt) {\n" +
+                            "    xDown = evt.touches[0].clientX;\n" +
+                            "    yDown = evt.touches[0].clientY;\n" +
+                            "  });\n" +
+                            "\n" +
+                            "  document.addEventListener(\"touchend\", function(evt) {\n" +
+                            "    if (!xDown || !yDown) {\n" +
+                            "      return;\n" +
+                            "    }\n" +
+                            "\n" +
+                            "    var xUp = evt.changedTouches[0].clientX;\n" +
+                            "    var yUp = evt.changedTouches[0].clientY;\n" +
+                            "\n" +
+                            "    var xDiff = xDown - xUp;\n" +
+                            "    var yDiff = yDown - yUp;\n" +
+                            "\n" +
+                            "    if (Math.abs(xDiff) > Math.abs(yDiff)) {\n" +
+                            "      /* most significant */\n" +
+                            "      if (xDiff > 0) {\n" +
+                            "        /* left swipe */\n" +
+                            "        window['Android'].onSwipeLeft();\n" +
+                            "      } else {\n" +
+                            "        /* right swipe */\n" +
+                            "        window['Android'].onSwipeRight();\n" +
+                            "      }\n" +
+                            "    } else {\n" +
+                            "      if (yDiff > 0) {\n" +
+                            "        /* up swipe */\n" +
+                            "        window['Android'].onSwipeUp();\n" +
+                            "      } else {\n" +
+                            "        /* down swipe */\n" +
+                            "        if(!document.getElementsByClassName(\"close-icon\").length){return}\n" +
+                            "        let checkHeightStart = yDown / window.innerHeight;\n" +
+                            "        let checkHeightEnd = yUp / window.innerHeight;\n" +
+                            "       console.log(checkHeightStart) \n" +
+                            "       console.log(checkHeightEnd) \n" +
+                            "        if(checkHeightStart < 0.35 && checkHeightEnd < 0.8){\n" +
+                            "        document.getElementsByClassName(\"close-icon\")[0].dispatchEvent(new Event(\"click\")) \n" +
+                            "      }\n" +
+                            "        window['Android'].onSwipeDown();\n" +
+                            "      }\n" +
+                            "    }\n" +
+                            "    /* reset values */\n" +
+                            "    xDown = null;\n" +
+                            "    yDown = null;\n" +
+                            "  });\n", null)
                 }
             }
             override fun onReceivedHttpError(
@@ -210,6 +262,28 @@ class MainActivity : AppCompatActivity() {
                 this@WebAppInterface.mainActivity.updateNoCacheWebview()
             }
         }
+        @JavascriptInterface
+        fun onSwipeLeft() {
+            println("onSwipeLeft")
+        }
+
+        @JavascriptInterface
+        fun onSwipeRight() {
+            // perform action on swipe right
+            println("onSwipeRight")
+        }
+
+        @JavascriptInterface
+        fun onSwipeUp() {
+            // perform action on swipe up
+            println("onSwipeUp")
+        }
+
+        @JavascriptInterface
+        fun onSwipeDown() {
+            // perform action on swipe down
+            println("onSwipeDown")
+        }
     }
 
     private fun updateNoCacheWebview() {
@@ -224,22 +298,29 @@ class MainActivity : AppCompatActivity() {
         this.webView.post {
             this.webView.clearCache(true)
             this.webView.clearHistory()
-            this.webView.loadUrl(urlToUse)
+//            this.webView.loadUrl(urlToUse)
         }
+
         this@MainActivity.webView.evaluateJavascript("""
                 (function() {
                     location.reload(true);
                 })();
                 """.trimIndent()) { value -> println(value)
-            alert.setTitle("Update")
-            alert.setMessage("Reload complete , thanks for your patience!")
+//            val timer0 = Timer()
+//            val task0 = object : TimerTask() {
+//                override fun run() {
+//                    alert.setTitle("Update")
+//                    alert.setMessage("Reload complete , thanks for your patience!")
+//                }
+//            }
+//            timer0.schedule(task0, 3000)
             val timer = Timer()
             val task = object : TimerTask() {
                 override fun run() {
                     alert.dismiss()
                 }
             }
-            timer.schedule(task, 2000)
+            timer.schedule(task, 5000)
         }
 
     }

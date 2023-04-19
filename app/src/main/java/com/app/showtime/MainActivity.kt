@@ -4,8 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -14,51 +12,44 @@ import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.os.VibratorManager
 import android.provider.MediaStore
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Base64.*
 import android.util.Log
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.webkit.*
-import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.getSystemService
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import okhttp3.*
-import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.io.File
 import java.io.IOException
 import java.net.URL
-import java.time.Duration
 import java.util.*
-import kotlin.math.abs
 
 
 class MainActivity : AppCompatActivity() {
-    private var userMail: String? = null
-    private var bearerToken: String? = null
-    private var uploadUrl: String? = null
-    private var countTest : Int = 0
-    val env = "dev"
-    private val FILE_CHOOSER_REQUEST_CODE = 1
-    private val REQUEST_READ_EXTERNAL_STORAGE = 2
-    private val READ_STORAGE_PERMISSION_REQUEST_CODE = 1
-    private val SPEECH_REQUEST_CODE = 3
-    private val SPEECH_REQUEST_COMMAND_CODE = 4
-    private val REQUEST_RECORD_AUDIO_PERMISSION = 5
-    private var filePathCallback: ValueCallback<Array<Uri>>? = null
-    private var idInputTypeFile = ""
+    public var userMail: String? = null
+    public var bearerToken: String? = null
+    public var uploadUrl: String? = null
+    public var countTest : Int = 0
+    val env = "prod"
+    public val FILE_CHOOSER_REQUEST_CODE = 1
+    public val REQUEST_READ_EXTERNAL_STORAGE = 2
+    public val READ_STORAGE_PERMISSION_REQUEST_CODE = 1
+    public val SPEECH_REQUEST_CODE = 3
+    public val SPEECH_REQUEST_COMMAND_CODE = 4
+    public val REQUEST_RECORD_AUDIO_PERMISSION = 5
+    public var filePathCallback: ValueCallback<Array<Uri>>? = null
+    public var idInputTypeFile = ""
+
+
     lateinit var webView: WebView
     object apiUrl{
         val local = "https://dev.showtime-app.click/api"
@@ -85,7 +76,6 @@ class MainActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
-
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         // Check for storage permission
@@ -97,55 +87,6 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 this@MainActivity.webView.post {
                     this@MainActivity.webView.evaluateJavascript("localStorage.setItem('isAndroid', 'true' )", null)
-                    this@MainActivity.webView.evaluateJavascript("var xDown = null;\n" +
-                            "  var yDown = null;\n" +
-                            "\n" +
-                            "  document.addEventListener(\"touchstart\", function(evt) {\n" +
-                            "    xDown = evt.touches[0].clientX;\n" +
-                            "    yDown = evt.touches[0].clientY;\n" +
-                            "  });\n" +
-                            "\n" +
-                            "  document.addEventListener(\"touchend\", function(evt) {\n" +
-                            "    if (!xDown || !yDown) {\n" +
-                            "      return;\n" +
-                            "    }\n" +
-                            "\n" +
-                            "    var xUp = evt.changedTouches[0].clientX;\n" +
-                            "    var yUp = evt.changedTouches[0].clientY;\n" +
-                            "\n" +
-                            "    var xDiff = xDown - xUp;\n" +
-                            "    var yDiff = yDown - yUp;\n" +
-                            "\n" +
-                            "    if (Math.abs(xDiff) > Math.abs(yDiff)) {\n" +
-                            "      /* most significant */\n" +
-                            "      if (xDiff > 0) {\n" +
-                            "        /* left swipe */\n" +
-                            "        window['Android'].onSwipeLeft();\n" +
-                            "      } else {\n" +
-                            "        /* right swipe */\n" +
-                            "        window['Android'].onSwipeRight();\n" +
-                            "      }\n" +
-                            "    } else {\n" +
-                            "      if (yDiff > 0) {\n" +
-                            "        /* up swipe */\n" +
-                            "        window['Android'].onSwipeUp();\n" +
-                            "      } else {\n" +
-                            "        /* down swipe */\n" +
-                            "        if(!document.getElementsByClassName(\"close-icon\").length){return}\n" +
-                            "        let checkHeightStart = yDown / window.innerHeight;\n" +
-                            "        let checkHeightEnd = yUp / window.innerHeight;\n" +
-                            "       console.log(checkHeightStart) \n" +
-                            "       console.log(checkHeightEnd) \n" +
-                            "        if(checkHeightStart < 0.35 && checkHeightEnd < 0.8){\n" +
-                            "        document.getElementsByClassName(\"close-icon\")[0].dispatchEvent(new Event(\"click\")) \n" +
-                            "      }\n" +
-                            "        window['Android'].onSwipeDown();\n" +
-                            "      }\n" +
-                            "    }\n" +
-                            "    /* reset values */\n" +
-                            "    xDown = null;\n" +
-                            "    yDown = null;\n" +
-                            "  });\n", null)
                 }
             }
             override fun onReceivedHttpError(
@@ -172,8 +113,12 @@ class MainActivity : AppCompatActivity() {
         }
         this.webView.settings.domStorageEnabled = true
 //        this.webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+        this.webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         this.webView.settings.allowFileAccess = true
         this.webView.settings.allowContentAccess = true
+        this.webView.settings.userAgentString  = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.5615.48 Mobile Safari/537.36"
+        this.webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        this.webView.settings.javaScriptEnabled = true
         this.checkWebAccess()
 //        this.kafkaListenerContainer()
         val networkRequest = NetworkRequest.Builder()
@@ -211,82 +156,8 @@ class MainActivity : AppCompatActivity() {
         }
         connectivityManager.requestNetwork(networkRequest, networkCallback)
     }
-    class WebAppInterface(
-        private val mContext: Context,
-        private val mainActivity: MainActivity
-    ) {
 
-        @SuppressLint("JavascriptInterface")
-        @JavascriptInterface
-        @RequiresApi(Build.VERSION_CODES.O)
-        fun createNotification(title: String, message: String) {
-            val chanel:NotificationChannel = NotificationChannel("1","1",NotificationManager.IMPORTANCE_HIGH)
-            val notificationManager = mContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            val notification =  NotificationCompat.Builder(mContext, "1")
-                .setContentTitle(title)
-                .setContentText(message)
-                .setSmallIcon(R.drawable.notification_icon)
-                .build()
-            with(notificationManager){
-                createNotificationChannel(chanel)
-                notify(1,notification)
-            }
-        }
-        @JavascriptInterface
-        fun updateVariable(bearerToken : String,userEmail : String , uploadUrl : String) {
-            // Update the variable in Kotlin with the name of the input element
-//            this.mainActivity.idInputTypeFile = name
-            this.mainActivity.userMail = userEmail
-            this.mainActivity.bearerToken = bearerToken
-            this.mainActivity.uploadUrl = uploadUrl
-
-            val permissions = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-            if (ContextCompat.checkSelfPermission(this.mainActivity, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this.mainActivity, permissions, this.mainActivity.REQUEST_READ_EXTERNAL_STORAGE)
-            } else {
-                this.mainActivity.selectFile(this.mainActivity)
-            }
-
-
-        }
-        @JavascriptInterface
-        fun toggleVocalSearch() {
-            GlobalScope.launch(Dispatchers.Main) {
-                this@WebAppInterface.mainActivity.vocalCommand()
-            }
-        }
-        @JavascriptInterface
-        fun updateApp() {
-            GlobalScope.launch(Dispatchers.Main) {
-                this@WebAppInterface.mainActivity.updateNoCacheWebview()
-            }
-        }
-        @JavascriptInterface
-        fun onSwipeLeft() {
-            println("onSwipeLeft")
-        }
-
-        @JavascriptInterface
-        fun onSwipeRight() {
-            // perform action on swipe right
-            println("onSwipeRight")
-        }
-
-        @JavascriptInterface
-        fun onSwipeUp() {
-            // perform action on swipe up
-            println("onSwipeUp")
-        }
-
-        @JavascriptInterface
-        fun onSwipeDown() {
-            // perform action on swipe down
-            println("onSwipeDown")
-        }
-    }
-
-    private fun updateNoCacheWebview() {
+    fun updateNoCacheWebview() {
         val builder = AlertDialog.Builder(this@MainActivity)
 
         val message = "Reloading the app , please wait"
@@ -325,7 +196,7 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    private fun selectFile(activity: Activity) {
+    fun selectFile(activity: Activity) {
 
         // Create an intent to open the file picker
         val intent = Intent(Intent.ACTION_PICK)
@@ -588,11 +459,8 @@ class MainActivity : AppCompatActivity() {
         speechIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
         this.startActivityForResult(speechIntent, SPEECH_REQUEST_COMMAND_CODE)
     }
-//   @RequiresApi(Build.VERSION_CODES.S)
+
    fun vocalCommand(){
-
-
-
        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
        val vibrationEffect = VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)
        vibrator.vibrate(vibrationEffect)
@@ -619,6 +487,7 @@ class MainActivity : AppCompatActivity() {
                    if (result != null && result.isNotEmpty()) {
                        val spokenText = result[0].replace(" ", "")
                        val spokenTextSearch = result[0].lowercase()
+                       println(spokenTextSearch)
                        if(spokenTextSearch.contains("search")){
                            val search = spokenTextSearch.replace("search","")
                            this@MainActivity.webView.post {
@@ -635,7 +504,7 @@ class MainActivity : AppCompatActivity() {
 //
 
                        }
-                       if (spokenText.contains("profile", true)) {
+                       if (spokenText.contains("profile", true)||spokenText.contains("profil", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
                                     (function() {
@@ -671,7 +540,7 @@ class MainActivity : AppCompatActivity() {
                                     """.trimIndent()) { value -> println(value) }
                            }
                        }
-                       if (spokenText.contains("Openhome", true)||spokenText.contains("explore", true)) {
+                       if (spokenText.contains("home", true)||spokenText.contains("explore", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
                                 (function() {
@@ -765,24 +634,6 @@ class MainActivity : AppCompatActivity() {
        }
 
    }
-    fun kafkaListenerContainer(){
-        val props = Properties()
-        props["bootstrap.servers"] = "2-3-129-154-103:30010"
-        props["group.id"] = "dev"
-        props["enable.auto.commit"] = "true"
-        props["auto.commit.interval.ms"] = "1000"
-        props["session.timeout.ms"] = "30000"
-        props["key.deserializer"] = "org.apache.kafka.common.serialization.StringDeserializer"
-        props["value.deserializer"] = "org.apache.kafka.common.serialization.StringDeserializer"
-        val consumer = KafkaConsumer<String, String>(props)
-        consumer.subscribe(listOf("devUser"))
-        while (true) {
-            val records = consumer.poll(Duration.ofMillis(100))
-            for (record in records) {
-                Log.d("Kafka", "offset = ${record.offset()}, key = ${record.key()}, value = ${record.value()}")
-            }
-        }
-    }
 }
 
 

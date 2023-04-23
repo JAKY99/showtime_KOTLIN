@@ -6,7 +6,9 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.*
 import android.os.Build
 import android.os.Bundle
@@ -119,6 +121,7 @@ class MainActivity : AppCompatActivity() {
         this.webView.settings.userAgentString  = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.5615.48 Mobile Safari/537.36"
         this.webView.settings.javaScriptCanOpenWindowsAutomatically = true
         this.webView.settings.javaScriptEnabled = true
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         this.checkWebAccess()
 //        this.kafkaListenerContainer()
         val networkRequest = NetworkRequest.Builder()
@@ -156,7 +159,12 @@ class MainActivity : AppCompatActivity() {
         }
         connectivityManager.requestNetwork(networkRequest, networkCallback)
     }
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
 
+        // Override configuration change to prevent screen rotation
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
     fun updateNoCacheWebview() {
         val builder = AlertDialog.Builder(this@MainActivity)
 

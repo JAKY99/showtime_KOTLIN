@@ -35,7 +35,6 @@ import java.io.IOException
 import java.net.URL
 import java.util.*
 
-
 class MainActivity : AppCompatActivity() {
     public var userMail: String? = null
     public var bearerToken: String? = null
@@ -80,6 +79,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        this.checkLastVersionApp()
         // Check for storage permission
         this.webView = findViewById(R.id.webView);
         this.webView.settings.javaScriptEnabled = true
@@ -461,6 +461,10 @@ class MainActivity : AppCompatActivity() {
     class HealthCheckStatus {
         var status = "OK"
     }
+    class versioncheck{
+        val versionCode : String =""
+        val versionName : String =""
+    }
     fun startVoiceRecognition() {
         val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -642,6 +646,49 @@ class MainActivity : AppCompatActivity() {
        }
 
    }
+    fun checkLastVersionApp(){
+        val uploadUrlRequest  : String = apiUrlToUse+"/api/v1/version/android/information"
+        val client = OkHttpClient()
+        val request = Request.Builder()
+            .url(uploadUrlRequest)
+            .build()
+        val response = client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+                GlobalScope.launch(Dispatchers.Main) {
+                    println("Failed to execute request")
+                }
+
+            }
+            @RequiresApi(Build.VERSION_CODES.KITKAT)
+            override fun onResponse(call: Call, response: Response) {
+                var ResponseType : versioncheck = response.body()?.string()?.let { Gson().fromJson(it, versioncheck::class.java) }!!
+                if(ResponseType.versionCode!=="" && ResponseType.versionCode!==BuildConfig.VERSION_CODE.toString()){
+                    GlobalScope.launch(Dispatchers.Main) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setMessage("A new version of the app is available. Please update to continue using the app.")
+                            .setPositiveButton("Update") { _, _ ->
+                                // Open the Google Play Store to download the latest version of the app
+                                val intent = Intent(Intent.ACTION_VIEW)
+                                intent.data = Uri.parse("market://details?id=${this@MainActivity.packageName}")
+                                startActivity(intent)
+                            }
+                            .setNegativeButton("Cancel") { _, _ ->
+                                // Close the app if the user chooses not to update
+                                this@MainActivity.finish()
+                            }
+                            .setCancelable(false) // Prevent the user from dismissing the dialog
+                            .create()
+                            .show()
+                    }
+
+                }
+
+            }
+
+        })
+
+    }
 }
 
 

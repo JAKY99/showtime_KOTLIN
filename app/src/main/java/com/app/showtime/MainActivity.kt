@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     public var countTest : Int = 0
     val env = "prod"
     public val FILE_CHOOSER_REQUEST_CODE = 1
+    public val FILE_CHOOSER_REQUEST_CODE_FOR_CROP = 6
     public val REQUEST_READ_EXTERNAL_STORAGE = 2
     public val READ_STORAGE_PERMISSION_REQUEST_CODE = 1
     public val SPEECH_REQUEST_CODE = 3
@@ -159,6 +160,10 @@ class MainActivity : AppCompatActivity() {
         }
         connectivityManager.requestNetwork(networkRequest, networkCallback)
     }
+    override fun onResume() {
+        super.onResume()
+        this.checkLastVersionApp()
+    }
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
@@ -218,6 +223,20 @@ class MainActivity : AppCompatActivity() {
         // Start the activity and wait for a result
         activity.startActivityForResult(chooserIntent, FILE_CHOOSER_REQUEST_CODE)
     }
+    fun selectTempFileForCrop(activity: Activity) {
+
+        // Create an intent to open the file picker
+        val intent = Intent(Intent.ACTION_PICK)
+        intent.type = "image/*"
+
+        // Set the title of the file picker
+//        intent.putExtra(Intent.EXTRA_TITLE, "Select a file")
+        // Only allow the user to select a single file
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+        val chooserIntent = Intent.createChooser(intent, "Select a file")
+        // Start the activity and wait for a result
+        activity.startActivityForResult(chooserIntent, FILE_CHOOSER_REQUEST_CODE_FOR_CROP)
+    }
     fun  handleGoBack() {
         if (this.webView.canGoBack()) {
             this.webView.goBack();
@@ -238,7 +257,7 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_READ_EXTERNAL_STORAGE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                this.selectFile(this)
+                this.selectTempFileForCrop(this)
             }
         }
     }
@@ -248,24 +267,24 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_READ_EXTERNAL_STORAGE && resultCode == Activity.RESULT_OK) {
             this.showFilePicker(this)
         }
-        if (requestCode == FILE_CHOOSER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
-            val fileUri = data?.data
-            if (fileUri != null) {
-                val builder = AlertDialog.Builder(this@MainActivity)
-                if(uploadUrl=="/api/v1/user/uploadBackgroundPicture"){
-                    builder.setTitle("Update background picture")
-                }
-                if(uploadUrl=="/api/v1/user/uploadProfilePicture"){
-                    builder.setTitle("Update profile picture")
-                }
-                val message = "Upload in progress please wait ..."
-                builder.setMessage(message)
-                builder.setCancelable(false)
-                val alert = builder.create()
-                uploadFileToAws(fileUri,alert)
-            }
-// Do something with the file URI
-        }
+//        if (requestCode == FILE_CHOOSER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+//            val fileUri = data?.data
+//            if (fileUri != null) {
+//                val builder = AlertDialog.Builder(this@MainActivity)
+//                if(uploadUrl=="/api/v1/user/uploadBackgroundPicture"){
+//                    builder.setTitle("Update background picture")
+//                }
+//                if(uploadUrl=="/api/v1/user/uploadProfilePicture"){
+//                    builder.setTitle("Update profile picture")
+//                }
+//                val message = "Upload in progress please wait ..."
+//                builder.setMessage(message)
+//                builder.setCancelable(false)
+//                val alert = builder.create()
+//                uploadFileToAws(fileUri,alert)
+//            }
+//// Do something with the file URI
+//        }
         if (requestCode == SPEECH_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
             val result = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             if (result != null && result.isNotEmpty()) {
@@ -278,11 +297,118 @@ class MainActivity : AppCompatActivity() {
         if(requestCode == REQUEST_RECORD_AUDIO_PERMISSION && resultCode == Activity.RESULT_OK){
             vocalCommand()
         }
+        if (requestCode == FILE_CHOOSER_REQUEST_CODE_FOR_CROP && resultCode == Activity.RESULT_OK) {
+            val fileUri = data?.data
+            if (fileUri != null) {
+                val builder = AlertDialog.Builder(this@MainActivity)
+                if(uploadUrl=="/api/v1/user/uploadBackgroundPicture"){
+                    builder.setTitle("Loading preview for background picture")
+                }
+                if(uploadUrl=="/api/v1/user/uploadProfilePicture"){
+                    builder.setTitle("Loading preview for profile picture")
+                }
+                val message = "Upload in progress please wait ..."
+                builder.setMessage(message)
+                builder.setCancelable(false)
+                val alert = builder.create()
+                uploadFileToWebview(fileUri,alert)
+            }
+// Do something with the file URI
+        }
     }
     fun showFilePicker(activity: Activity) {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
         intent.type = "/"
         activity.startActivityForResult(intent, FILE_CHOOSER_REQUEST_CODE)
+    }
+    @RequiresApi(Build.VERSION_CODES.KITKAT)
+    fun uploadFileToWebview(fileUri: Uri,alertDialog: AlertDialog) :Int {
+        alertDialog.show()
+        var isImageUpload = "none"
+        val path = getPath(applicationContext, fileUri)
+        val file = File(path)
+        val uploadUrlRequest  : String = apiUrlToUse+uploadUrl
+        val client = OkHttpClient()
+        val formBody = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("email", this.userMail)
+            .addFormDataPart("file", file.name, RequestBody.create(MediaType.parse("multipart/form-data"), file))
+            .build()
+        val request = Request.Builder()
+            .url(uploadUrlRequest)
+            .addHeader("Authorization", "Bearer ${this.bearerToken}")
+            .post(formBody)
+            .build()
+        val response = client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                GlobalScope.launch(Dispatchers.Main) {
+                    alertDialog.setTitle("Preview loading status")
+                    alertDialog.setMessage("failed")
+                    alertDialog.setCancelable(true)
+                }
+
+                isImageUpload = "false"
+                e.printStackTrace()
+                println("Failed to execute request")
+            }
+            @RequiresApi(Build.VERSION_CODES.KITKAT)
+            override fun onResponse(call: Call, response: Response) {
+                GlobalScope.launch(Dispatchers.Main) {
+
+                    if(uploadUrl=="/api/v1/user/tempForCrop/uploadBackgroundPicture"){
+                        this@MainActivity.webView.evaluateJavascript("""
+                    (function() {
+                       document.getElementById("callbackUploadTempCropHandler").value="background"
+                       document.getElementById("callbackUploadTempCropHandler").dispatchEvent(new Event('change'));
+                    })();
+                    """.trimIndent()) {
+                                value -> println(value)
+                            alertDialog.setTitle("Preview loading")
+                            alertDialog.setMessage("Ready")
+                            val timer = Timer()
+                            val task = object : TimerTask() {
+                                override fun run() {
+                                    alertDialog.dismiss()
+                                }
+                            }
+                            timer.schedule(task, 2000)
+                        }
+                    }
+                    if(uploadUrl=="/api/v1/user/tempForCrop/uploadProfilePicture"){
+                        this@MainActivity.webView.evaluateJavascript("""
+                    (function() {
+                        document.getElementById("callbackUploadTempCropHandler").value="avatar"
+                        document.getElementById("callbackUploadTempCropHandler").dispatchEvent(new Event('change'));
+                    })();
+                    """.trimIndent()) { value -> println(value)
+                            alertDialog.setTitle("Preview loading")
+                            alertDialog.setMessage("Ready")
+                            val timer = Timer()
+                            val task = object : TimerTask() {
+                                override fun run() {
+                                    alertDialog.dismiss()
+                                }
+                            }
+                            timer.schedule(task, 2000)
+                        }
+                    }
+                }
+
+                isImageUpload = "true"
+                println(response.body()?.string())
+            }
+
+        })
+
+
+
+
+
+        return 1
+
+    }
+
+    fun ByteArray.encodeBase64(): String {
+        return Base64.getEncoder().encodeToString(this)
     }
     @RequiresApi(Build.VERSION_CODES.KITKAT)
     fun uploadFileToAws(fileUri : Uri , alertDialog: AlertDialog ): Int {
@@ -663,7 +789,9 @@ class MainActivity : AppCompatActivity() {
             @RequiresApi(Build.VERSION_CODES.KITKAT)
             override fun onResponse(call: Call, response: Response) {
                 var ResponseType : versioncheck = response.body()?.string()?.let { Gson().fromJson(it, versioncheck::class.java) }!!
-                if(ResponseType.versionCode!=="" && ResponseType.versionCode!==BuildConfig.VERSION_CODE.toString()){
+                var currentVersion = BuildConfig.VERSION_CODE.toString()
+                var lastVersion = ResponseType.versionCode
+                if(ResponseType.versionCode!=="" && lastVersion != currentVersion){
                     GlobalScope.launch(Dispatchers.Main) {
                         AlertDialog.Builder(this@MainActivity)
                             .setMessage("A new version of the app is available. Please update to continue using the app.")

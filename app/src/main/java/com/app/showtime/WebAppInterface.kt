@@ -54,23 +54,38 @@ class WebAppInterface(
         val mediaPlayer = MediaPlayer.create(mContext, R.raw.notification)
         mediaPlayer.start()
     }
+//    @JavascriptInterface
+//    fun updateVariable(bearerToken : String,userEmail : String , uploadUrl : String) {
+//        // Update the variable in Kotlin with the name of the input element
+////            this.mainActivity.idInputTypeFile = name
+//        this.mainActivity.userMail = userEmail
+//        this.mainActivity.bearerToken = bearerToken
+//        this.mainActivity.uploadUrl = uploadUrl
+//
+//        val permissions = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+//        if (ContextCompat.checkSelfPermission(this.mainActivity, Manifest.permission.READ_EXTERNAL_STORAGE)
+//            != PackageManager.PERMISSION_GRANTED) {
+//            ActivityCompat.requestPermissions(this.mainActivity, permissions, this.mainActivity.REQUEST_READ_EXTERNAL_STORAGE)
+//        } else {
+//            this.mainActivity.selectFile(this.mainActivity)
+//        }
+//    }
     @JavascriptInterface
-    fun updateVariable(bearerToken : String,userEmail : String , uploadUrl : String) {
+    fun updateVariableForCrop(bearerToken : String,userEmail : String , uploadUrl : String) {
         // Update the variable in Kotlin with the name of the input element
 //            this.mainActivity.idInputTypeFile = name
         this.mainActivity.userMail = userEmail
         this.mainActivity.bearerToken = bearerToken
         this.mainActivity.uploadUrl = uploadUrl
 
+
         val permissions = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         if (ContextCompat.checkSelfPermission(this.mainActivity, Manifest.permission.READ_EXTERNAL_STORAGE)
             != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this.mainActivity, permissions, this.mainActivity.REQUEST_READ_EXTERNAL_STORAGE)
         } else {
-            this.mainActivity.selectFile(this.mainActivity)
+            this.mainActivity.selectTempFileForCrop(this.mainActivity)
         }
-
-
     }
     @JavascriptInterface
     fun toggleVocalSearch() {

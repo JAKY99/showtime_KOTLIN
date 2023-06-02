@@ -79,6 +79,59 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        this.initWebview()
+        this.checkWebAccess()
+//        this.kafkaListenerContainer()
+        val networkRequest = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+            .build()
+        val connectivityManager = getSystemService(ConnectivityManager::class.java) as ConnectivityManager
+        val networkCallback = object : ConnectivityManager.NetworkCallback() {
+            // network is available for use
+            override fun onAvailable(network: Network) {
+                super.onAvailable(network)
+                println("Network is available")
+                GlobalScope.launch(Dispatchers.Main) {
+                    this@MainActivity.initWebview()
+                }
+
+            }
+
+            // Network capabilities have changed for the network
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) {
+                super.onCapabilitiesChanged(network, networkCapabilities)
+                val unmetered = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+            }
+
+            // lost network connection
+            override fun onLost(network: Network) {
+                super.onLost(network)
+//                val errorPage = URL("file:///android_asset/error_page.html")
+//                webView.post { webView.loadUrl(errorPage.toString()) }
+                GlobalScope.launch(Dispatchers.Main) {
+                    this@MainActivity.setContentView(R.layout.error)
+                }
+
+            }
+        }
+        connectivityManager.requestNetwork(networkRequest, networkCallback)
+    }
+    override fun onResume() {
+        super.onResume()
+        this.checkLastVersionApp()
+    }
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        // Override configuration change to prevent screen rotation
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
+    fun initWebview(){
         setContentView(R.layout.activity_main)
         this.checkLastVersionApp()
         // Check for storage permission
@@ -106,9 +159,8 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
-                val errorPage = URL("file:///android_asset/error_page.html")
-                webView.loadUrl(errorPage.toString())
-                this@MainActivity.checkWebAccess()
+//                this@MainActivity.setContentView(R.layout.error)
+                println("errorResponse: ${error.toString()}")
             }
         }
         this.webView.webChromeClient = object : WebChromeClient() {
@@ -123,52 +175,7 @@ class MainActivity : AppCompatActivity() {
         this.webView.settings.javaScriptCanOpenWindowsAutomatically = true
         this.webView.settings.javaScriptEnabled = true
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        this.checkWebAccess()
-//        this.kafkaListenerContainer()
-        val networkRequest = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-            .build()
-        val connectivityManager = getSystemService(ConnectivityManager::class.java) as ConnectivityManager
-        val networkCallback = object : ConnectivityManager.NetworkCallback() {
-            // network is available for use
-            override fun onAvailable(network: Network) {
-                super.onAvailable(network)
-                println("Network is available")
-
-                webView.post {
-                    webView.loadUrl(urlToUse)
-                }
-            }
-
-            // Network capabilities have changed for the network
-            override fun onCapabilitiesChanged(
-                network: Network,
-                networkCapabilities: NetworkCapabilities
-            ) {
-                super.onCapabilitiesChanged(network, networkCapabilities)
-                val unmetered = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-            }
-
-            // lost network connection
-            override fun onLost(network: Network) {
-                super.onLost(network)
-                val errorPage = URL("file:///android_asset/error_page.html")
-                webView.post { webView.loadUrl(errorPage.toString()) }
-            }
-        }
-        connectivityManager.requestNetwork(networkRequest, networkCallback)
-    }
-    override fun onResume() {
-        super.onResume()
-        this.checkLastVersionApp()
-    }
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-
-        // Override configuration change to prevent screen rotation
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        this.webView.loadUrl(urlToUse)
     }
     fun updateNoCacheWebview() {
         val builder = AlertDialog.Builder(this@MainActivity)
@@ -541,8 +548,6 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.KITKAT)
     fun checkWebAccess(): Void? {
-        val loadingPage = URL("file:///android_asset/default_loading_page.html")
-        webView.loadUrl(loadingPage.toString())
         var checkUrlRequest  : String = urlToUse
         val client = OkHttpClient()
         var status = "none"
@@ -557,8 +562,7 @@ class MainActivity : AppCompatActivity() {
                 println("Failed to execute request")
                 GlobalScope.launch(Dispatchers.Main) {
                     status = "false"
-                    val errorPage = URL("file:///android_asset/error_page.html")
-                    webView.loadUrl(errorPage.toString())
+                    setContentView(R.layout.error)
                 }
 
             }
@@ -568,12 +572,11 @@ class MainActivity : AppCompatActivity() {
                 GlobalScope.launch(Dispatchers.Main) {
                     if(response.code()==200){
                         status = "true"
-                        webView.loadUrl(checkUrlRequest)
+                        this@MainActivity.initWebview()
                     }
                     if(response.code()!==200){
                         status = "false"
-                        val errorPage = URL("file:///android_asset/error_page.html")
-                        webView.loadUrl(errorPage.toString())
+                        setContentView(R.layout.error)
                     }
                 }
 

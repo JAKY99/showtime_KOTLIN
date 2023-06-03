@@ -1,5 +1,4 @@
 package com.app.showtime
-//import io.socket.engineio.parser.Base64.encodeToString
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -32,7 +31,6 @@ import kotlinx.coroutines.launch
 import okhttp3.*
 import java.io.File
 import java.io.IOException
-import java.net.URL
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
@@ -79,9 +77,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        this.initWebview()
         this.checkWebAccess()
-//        this.kafkaListenerContainer()
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -111,8 +107,6 @@ class MainActivity : AppCompatActivity() {
             // lost network connection
             override fun onLost(network: Network) {
                 super.onLost(network)
-//                val errorPage = URL("file:///android_asset/error_page.html")
-//                webView.post { webView.loadUrl(errorPage.toString()) }
                 GlobalScope.launch(Dispatchers.Main) {
                     this@MainActivity.setContentView(R.layout.error)
                 }
@@ -145,26 +139,37 @@ class MainActivity : AppCompatActivity() {
                     this@MainActivity.webView.evaluateJavascript("localStorage.setItem('isAndroid', 'true' )", null)
                 }
             }
+
             override fun onReceivedHttpError(
                 view: WebView?,
                 request: WebResourceRequest?,
                 errorResponse: WebResourceResponse?
             ) {
                 super.onReceivedHttpError(view, request, errorResponse)
-                println("errorResponse: ${errorResponse.toString()}")
+                System.out.print("error: ${errorResponse}")
+                System.out.print("error: ${request}")
             }
             override fun onReceivedError(
                 view: WebView?,
-                request: WebResourceRequest?,
-                error: WebResourceError?
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?
             ) {
-                super.onReceivedError(view, request, error)
-//                this@MainActivity.setContentView(R.layout.error)
-                println("errorResponse: ${error.toString()}")
+                GlobalScope.launch(Dispatchers.Main) {
+                    this@MainActivity.setContentView(R.layout.error)
+                    val timer = Timer()
+                    val task = object : TimerTask() {
+                        override fun run() {
+                            GlobalScope.launch(Dispatchers.Main) {
+                                this@MainActivity.initWebview()
+                            }
+                        }
+                    }
+                    timer.schedule(task, 5000)
+                }
             }
         }
         this.webView.webChromeClient = object : WebChromeClient() {
-
         }
         this.webView.settings.domStorageEnabled = true
 //        this.webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
@@ -267,6 +272,11 @@ class MainActivity : AppCompatActivity() {
                 this.selectTempFileForCrop(this)
             }
         }
+        if(requestCode == REQUEST_RECORD_AUDIO_PERMISSION){
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                this.vocalCommand()
+            }
+        }
     }
     @RequiresApi(Build.VERSION_CODES.KITKAT)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -274,24 +284,6 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_READ_EXTERNAL_STORAGE && resultCode == Activity.RESULT_OK) {
             this.showFilePicker(this)
         }
-//        if (requestCode == FILE_CHOOSER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
-//            val fileUri = data?.data
-//            if (fileUri != null) {
-//                val builder = AlertDialog.Builder(this@MainActivity)
-//                if(uploadUrl=="/api/v1/user/uploadBackgroundPicture"){
-//                    builder.setTitle("Update background picture")
-//                }
-//                if(uploadUrl=="/api/v1/user/uploadProfilePicture"){
-//                    builder.setTitle("Update profile picture")
-//                }
-//                val message = "Upload in progress please wait ..."
-//                builder.setMessage(message)
-//                builder.setCancelable(false)
-//                val alert = builder.create()
-//                uploadFileToAws(fileUri,alert)
-//            }
-//// Do something with the file URI
-//        }
         if (requestCode == SPEECH_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
             val result = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             if (result != null && result.isNotEmpty()) {
@@ -300,9 +292,6 @@ class MainActivity : AppCompatActivity() {
                     startVoiceRecognition()
                 }
             }
-        }
-        if(requestCode == REQUEST_RECORD_AUDIO_PERMISSION && resultCode == Activity.RESULT_OK){
-            vocalCommand()
         }
         if (requestCode == FILE_CHOOSER_REQUEST_CODE_FOR_CROP && resultCode == Activity.RESULT_OK) {
             val fileUri = data?.data
@@ -320,7 +309,6 @@ class MainActivity : AppCompatActivity() {
                 val alert = builder.create()
                 uploadFileToWebview(fileUri,alert)
             }
-// Do something with the file URI
         }
     }
     fun showFilePicker(activity: Activity) {
@@ -577,6 +565,15 @@ class MainActivity : AppCompatActivity() {
                     if(response.code()!==200){
                         status = "false"
                         setContentView(R.layout.error)
+                        val timer = Timer()
+                        val task = object : TimerTask() {
+                            override fun run() {
+                                GlobalScope.launch(Dispatchers.Main) {
+                                    this@MainActivity.checkWebAccess()
+                                }
+                            }
+                        }
+                        timer.schedule(task, 5000)
                     }
                 }
 
@@ -607,6 +604,13 @@ class MainActivity : AppCompatActivity() {
        vibrator.vibrate(vibrationEffect)
        if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO_PERMISSION)
+           this@MainActivity.webView.post {
+               this@MainActivity.webView.evaluateJavascript("""
+                                (function() {
+                                    document.getElementById('navbar-vocal-btn')?.classList.remove('navbar-vocal-btn-pulse');
+                                })();
+                                """.trimIndent()) { value -> println(value) }
+           }
        }else{
            val builder = AlertDialog.Builder(this@MainActivity)
            builder.setTitle("Vocal Command")

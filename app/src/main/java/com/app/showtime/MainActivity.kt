@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.net.*
 import android.os.Build
 import android.os.Bundle
@@ -19,6 +20,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Base64.*
 import android.util.Log
+import android.view.View
 import android.webkit.*
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
@@ -128,15 +130,32 @@ class MainActivity : AppCompatActivity() {
     fun initWebview(){
         setContentView(R.layout.activity_main)
         this.checkLastVersionApp()
-        // Check for storage permission
         this.webView = findViewById(R.id.webView);
+        val welcomeview = findViewById<View>(R.id.welcomeview)
         this.webView.settings.javaScriptEnabled = true
         this.webView.addJavascriptInterface(WebAppInterface(this, this), "Android")
         this.webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                this@MainActivity.webView.visibility = View.INVISIBLE
+                welcomeview.visibility = View.VISIBLE
+            }
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 this@MainActivity.webView.post {
                     this@MainActivity.webView.evaluateJavascript("localStorage.setItem('isAndroid', 'true' )", null)
+                }
+                GlobalScope.launch(Dispatchers.Main) {
+                    val timer = Timer()
+                    val task = object : TimerTask() {
+                        override fun run() {
+                            GlobalScope.launch(Dispatchers.Main) {
+                                this@MainActivity.webView.visibility = View.VISIBLE
+                                welcomeview.visibility = View.INVISIBLE
+                            }
+                        }
+                    }
+                    timer.schedule(task, 1000)
                 }
             }
 

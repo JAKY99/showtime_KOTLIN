@@ -11,8 +11,8 @@ android {
         applicationId "com.app.showtime"
         minSdk 26
         targetSdk 32
-        versionCode 13
-        versionName "13"
+        versionCode 16
+        versionName "16"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

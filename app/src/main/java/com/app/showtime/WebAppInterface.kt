@@ -30,9 +30,13 @@ class WebAppInterface(
     @SuppressLint("JavascriptInterface")
     @JavascriptInterface
     @RequiresApi(Build.VERSION_CODES.O)
-    fun createNotification(title: String, message: String) {
-
-        val notificationSoundUri = Uri.parse("file:///android_asset/notification.wav")
+    fun createNotification(title: String, message: String,type: String) {
+        val notificationMedia = when (type) {
+            "info" -> R.raw.notif1
+            "warning" -> R.raw.notif2
+            "error" -> R.raw.notif3
+            else -> R.raw.notif1
+        }
 // Create a PendingIntent to launch your app's main activity
         val intent = Intent(mContext, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE)
@@ -51,25 +55,9 @@ class WebAppInterface(
             createNotificationChannel(chanel)
             notify(1,notification)
         }
-        val mediaPlayer = MediaPlayer.create(mContext, R.raw.notification)
+        val mediaPlayer = MediaPlayer.create(mContext,notificationMedia)
         mediaPlayer.start()
     }
-//    @JavascriptInterface
-//    fun updateVariable(bearerToken : String,userEmail : String , uploadUrl : String) {
-//        // Update the variable in Kotlin with the name of the input element
-////            this.mainActivity.idInputTypeFile = name
-//        this.mainActivity.userMail = userEmail
-//        this.mainActivity.bearerToken = bearerToken
-//        this.mainActivity.uploadUrl = uploadUrl
-//
-//        val permissions = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-//        if (ContextCompat.checkSelfPermission(this.mainActivity, Manifest.permission.READ_EXTERNAL_STORAGE)
-//            != PackageManager.PERMISSION_GRANTED) {
-//            ActivityCompat.requestPermissions(this.mainActivity, permissions, this.mainActivity.REQUEST_READ_EXTERNAL_STORAGE)
-//        } else {
-//            this.mainActivity.selectFile(this.mainActivity)
-//        }
-//    }
     @JavascriptInterface
     fun updateVariableForCrop(bearerToken : String,userEmail : String , uploadUrl : String) {
         // Update the variable in Kotlin with the name of the input element
@@ -98,32 +86,5 @@ class WebAppInterface(
         GlobalScope.launch(Dispatchers.Main) {
             this@WebAppInterface.mainActivity.updateNoCacheWebview()
         }
-    }
-    @JavascriptInterface
-    fun onSwipeLeft() {
-        println("onSwipeLeft")
-    }
-
-    @JavascriptInterface
-    fun onSwipeRight() {
-        // perform action on swipe right
-        println("onSwipeRight")
-    }
-
-    @JavascriptInterface
-    fun onSwipeUp() {
-        // perform action on swipe up
-        println("onSwipeUp")
-    }
-
-    @JavascriptInterface
-    fun onSwipeDown() {
-        // perform action on swipe down
-        println("onSwipeDown")
-    }
-    @JavascriptInterface
-    fun onMessageReceived(message: String) {
-        // Handle the received message here
-        Log.d("WebView", "Received message: $message")
     }
 }

@@ -117,10 +117,6 @@ class MainActivity : AppCompatActivity() {
         }
         connectivityManager.requestNetwork(networkRequest, networkCallback)
     }
-    override fun onResume() {
-        super.onResume()
-        this.checkLastVersionApp()
-    }
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
@@ -213,7 +209,6 @@ class MainActivity : AppCompatActivity() {
         this.webView.post {
             this.webView.clearCache(true)
             this.webView.clearHistory()
-//            this.webView.loadUrl(urlToUse)
         }
 
         this@MainActivity.webView.evaluateJavascript("""
@@ -221,14 +216,6 @@ class MainActivity : AppCompatActivity() {
                     location.reload(true);
                 })();
                 """.trimIndent()) { value -> println(value)
-//            val timer0 = Timer()
-//            val task0 = object : TimerTask() {
-//                override fun run() {
-//                    alert.setTitle("Update")
-//                    alert.setMessage("Reload complete , thanks for your patience!")
-//                }
-//            }
-//            timer0.schedule(task0, 3000)
             val timer = Timer()
             val task = object : TimerTask() {
                 override fun run() {
@@ -279,7 +266,16 @@ class MainActivity : AppCompatActivity() {
     override fun onBackPressed() {
         this.handleGoBack()
     }
-
+    @Override
+    override fun onPause() {
+        super.onPause()
+    }
+    @Override
+    override fun onResume() {
+        super.onResume()
+        this.checkLastVersionApp()
+    }
+    @Override
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -633,15 +629,19 @@ class MainActivity : AppCompatActivity() {
        }else{
            val builder = AlertDialog.Builder(this@MainActivity)
            builder.setTitle("Vocal Command")
-           val message = "Speak now"
+           val message =
+                   " - Search (e.g., say: search Marvel)" +
+                   "\n" +
+                   " - Go to (e.g., say: Go to movies)";
+
+
+
            builder.setMessage(message)
            val alert = builder.create()
            alert.show()
            val recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
            val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-//           recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
-//           recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
            recognizerIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk now")
            recognizer.setRecognitionListener(object : RecognitionListener {
                @RequiresApi(Build.VERSION_CODES.KITKAT)
@@ -668,58 +668,60 @@ class MainActivity : AppCompatActivity() {
 //
 
                        }
+
                        if (spokenText.contains("profile", true)||spokenText.contains("profil", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
-                                    (function() {
-                                       document.getElementById('navbar-profil-btn').dispatchEvent(new Event('click') );
-                                    })();
-                                    """.trimIndent()) { value -> println(value) }
+                                (function() {
+                                   document.getElementById('navbar-profil-btn').dispatchEvent(new Event('click') );
+                                })();
+                                """.trimIndent()) { value -> println(value) }
                            }
                        }
                        if (spokenText.contains("series", true)||spokenText.contains("série", true)||spokenText.contains("cerise", true)||spokenText.contains("show", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
-                                    (function() {
-                                       document.getElementById('navbar-series-btn').dispatchEvent(new Event('click') );
-                                    })();
-                                    """.trimIndent()) { value -> println(value) }
+                                (function() {
+                                   document.getElementById('navbar-series-btn').dispatchEvent(new Event('click') );
+                                })();
+                                """.trimIndent()) { value -> println(value) }
                            }
                        }
                        if (spokenText.contains("movies", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
-                                    (function() {
-                                       document.getElementById('navbar-movies-btn').dispatchEvent(new Event('click') );
-                                    })();
-                                    """.trimIndent()) { value -> println(value) }
+                                (function() {
+                                   document.getElementById('navbar-movies-btn').dispatchEvent(new Event('click') );
+                                })();
+                                """.trimIndent()) { value -> println(value) }
                            }
                        }
                        if (spokenText.contains("social", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
-                                    (function() {
-                                       document.getElementById('navbar-social-btn').dispatchEvent(new Event('click') );
-                                    })();
-                                    """.trimIndent()) { value -> println(value) }
+                                (function() {
+                                   document.getElementById('navbar-social-btn').dispatchEvent(new Event('click') );
+                                })();
+                                """.trimIndent()) { value -> println(value) }
                            }
                        }
                        if (spokenText.contains("home", true)||spokenText.contains("explore", true)) {
                            this@MainActivity.webView.post {
                                this@MainActivity.webView.evaluateJavascript("""
-                                (function() {
-                                   document.getElementById('navbar-explore-btn').dispatchEvent(new Event('click') )
-                                })();
-                                """.trimIndent()) { value -> println(value) }
+                            (function() {
+                               document.getElementById('navbar-explore-btn').dispatchEvent(new Event('click') )
+                            })();
+                            """.trimIndent()) { value -> println(value) }
                            }
                        }
                        this@MainActivity.webView.post {
                            this@MainActivity.webView.evaluateJavascript("""
-                                (function() {
-                                    document.getElementById('navbar-vocal-btn')?.classList.remove('navbar-vocal-btn-pulse');
-                                })();
-                                """.trimIndent()) { value -> println(value) }
+                            (function() {
+                                document.getElementById('navbar-vocal-btn')?.classList.remove('navbar-vocal-btn-pulse');
+                            })();
+                            """.trimIndent()) { value -> println(value) }
                        }
+
                    }
 
                }

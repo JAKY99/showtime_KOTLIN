@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
@@ -46,7 +47,10 @@ class WebAppInterface(
         val notification =  NotificationCompat.Builder(mContext, "1")
             .setContentTitle(title)
             .setContentText(message)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_baseline_circle_notifications_24)
+            .setLargeIcon(BitmapFactory.decodeResource(mContext.resources,
+                R.drawable.ic_launcher_fore
+            )) // Set custom icon
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true) // clear notification after click
